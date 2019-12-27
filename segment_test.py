@@ -16,12 +16,8 @@ cv2.waitKey(-1)
 # Convert to HSV so color thresholding is easier.
 hsv_image = cv2.cvtColor(shifted, cv2.COLOR_BGR2HSV)
 # Threshold the kernels and the cob.
-kernel_mask = cv2.inRange(hsv_image, (18, 128, 128), (35, 255, 255))
+kernel_mask = cv2.inRange(hsv_image, (18, 100, 65), (30, 255, 255))
 cob_mask = cv2.inRange(hsv_image, (0, 115, 108), (16, 222, 233))
-#cv2.imshow("Kernels", kernel_mask)
-#cv2.waitKey(-1)
-#cv2.imshow("Cob", cob_mask)
-#cv2.waitKey(-1)
 
 # Erode and dilate the masks to remove noise.
 kernel = np.ones((3, 3), np.uint8)
@@ -50,8 +46,14 @@ ear_mask_with_contours = np.stack((ear_mask, ear_mask, ear_mask), axis=2)
 cv2.drawContours(ear_mask_with_contours, contours, -1, (0, 0, 255), 1)
 
 # Fit ellipses to the contours.
-ellipses = []
-for contour in contours:
+contour_idx_to_ellipse = {}
+for i, contour in enumerate(contours):
+    # Filter out contours with too little area.
+    contour_area = cv2.contourArea(contour)
+    if contour_area < 1000:
+        # Unlikely to be corn, because it's too small.
+        continue
+
     if len(contour) < 5:
         # Contour is too small to fit an ellipse to.
         continue
@@ -67,12 +69,17 @@ for contour in contours:
         # Unlikely to be corn, because it's not oblong enough. Discard this.
         continue
 
-    ellipses.append((center, size, angle))
+    # Filter out any that are not vertical enough.
+    _, _, width, height = cv2.boundingRect(contour)
+    if height < width:
+        # Unlikely to be corn, because it's horizontal.
+        continue
+
+    contour_idx_to_ellipse[i] = (center, size, angle)
 
 # Draw the bounding ellipses.
 ear_mask_with_ellipses = np.copy(ear_mask_with_contours)
-for ellipse in ellipses:
-    center, size, angle = ellipse
+for center, size, angle in contour_idx_to_ellipse.values():
     center = tuple([int(d) for d in center])
     size = tuple([int(d) for d in size])
     angle = int(angle)
@@ -83,15 +90,9 @@ cv2.waitKey(-1)
 
 # Mask out one ear at a time.
 ear_masks = []
-for ellipse in ellipses:
-    center, size, angle = ellipse
-    center = tuple([int(d) for d in center])
-    size = tuple([int(d) for d in size])
-    angle = int(angle)
-
+for i in contour_idx_to_ellipse.keys():
     background_mask = np.zeros_like(ear_mask)
-    cv2.ellipse(background_mask, center, size, angle, 0, 360,
-                (255, 255, 255), thickness=-1)
+    cv2.drawContours(background_mask, contours, i, (255, 255, 255), -1)
     ear_masks.append(background_mask)
 
 # Process each ear individually.
