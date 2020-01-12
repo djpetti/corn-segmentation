@@ -1,10 +1,30 @@
+from pathlib import Path
 import argparse
 
 import cv2
 
 import numpy as np
 
+from segmentation.sharpmask_segmenter import SharpmaskSegmenter
 from segmentation.threshold_segmenter import ThresholdSegmenter
+
+
+def _make_threshold_segmenter(args: argparse.Namespace) -> ThresholdSegmenter:
+    """
+    Creates a ThresholdSegmenter instance based on user-supplied configuration.
+    :param args: The CLI arguments.
+    :return: The ThresholdSegmenter it created.
+    """
+    return ThresholdSegmenter()
+
+
+def _make_sharpmask_segmenter(args: argparse.Namespace) -> SharpmaskSegmenter:
+    """
+    Creates a SharpmaskSegmenter instance based on user-supplied configuration.
+    :param args: The CLI arguments.
+    :return: The SharpmaskSegmenter it created.
+    """
+    return SharpmaskSegmenter(checkpoint_path=Path(args.model))
 
 
 def _make_parser() -> argparse.ArgumentParser:
@@ -17,6 +37,15 @@ def _make_parser() -> argparse.ArgumentParser:
                                                  " each ear consumed.")
     parser.add_argument("corn_image", help="The path to the image of corn to "
                                            "read and process.")
+    subparsers = parser.add_subparsers()
+
+    parser_classical = subparsers.add_parser("classical")
+    parser_classical.set_defaults(make_segmenter=_make_threshold_segmenter)
+
+    parser_sharpmask = subparsers.add_parser("sharpmask")
+    parser_sharpmask.add_argument("model", help="The path to the saved model "
+                                                "checkpoint.")
+    parser_sharpmask.set_defaults(make_segmenter=_make_sharpmask_segmenter)
 
     return parser
 
@@ -29,7 +58,7 @@ def main() -> None:
     image = cv2.imread(args.corn_image)
 
     # Extract masks for the corn ears.
-    segmenter = ThresholdSegmenter()
+    segmenter = args.make_segmenter(args)
     ear_masks = segmenter.segment_image(image)
 
     # Find and print the portion of each ear that is consumed.

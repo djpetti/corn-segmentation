@@ -38,6 +38,24 @@ class ThresholdSegmenter(CornSegmenter):
     # an ear of corn.
     _EAR_MIN_AXIS_RATIO = 3.0
 
+    def __init__(self,
+                 kernels_lower_hsv: Tuple[int, int, int] = _KERNELS_LOWER_HSV,
+                 kernels_upper_hsv: Tuple[int, int, int] = _KERNELS_UPPER_HSV,
+                 cob_lower_hsv: Tuple[int, int, int] = _COB_LOWER_HSV,
+                 cob_upper_hsv: Tuple[int, int, int] = _COB_UPPER_HSV):
+        """
+        :param kernels_lower_hsv: The lower HSV bound to use for thresholding
+        kernels.
+        :param kernels_upper_hsv: The upper HSV bound to use for thresholding
+        kernels.
+        :param cob_lower_hsv: The lower HSV bound to use for thresholding cobs.
+        :param cob_upper_hsv: The upper HSV bound to use for thresholding cobs.
+        """
+        self.__kernels_lower_hsv = kernels_lower_hsv
+        self.__kernels_upper_hsv = kernels_upper_hsv
+        self.__cob_lower_hsv = cob_lower_hsv
+        self.__cob_upper_hsv = cob_upper_hsv
+
     @classmethod
     def __prepare_image(cls, image: np.ndarray) -> np.ndarray:
         """
@@ -69,8 +87,7 @@ class ThresholdSegmenter(CornSegmenter):
 
         return mask_opened
 
-    @classmethod
-    def __mask_ear_parts(cls, image: np.ndarray) -> EarMask:
+    def __mask_ear_parts(self, image: np.ndarray) -> EarMask:
         """
         Masks the parts of an ear of corn through thresholding. The masks
         produced by this approach are fairly naive.
@@ -79,19 +96,20 @@ class ThresholdSegmenter(CornSegmenter):
         the cobs in the image.
         """
         # Threshold the kernels and the cob.
-        kernel_mask = cv2.inRange(image, cls._KERNELS_LOWER_HSV,
-                                  cls._KERNELS_UPPER_HSV)
-        cob_mask = cv2.inRange(image, cls._COB_LOWER_HSV, cls._COB_UPPER_HSV)
+        kernel_mask = cv2.inRange(image, self.__kernels_lower_hsv,
+                                  self.__kernels_upper_hsv)
+        cob_mask = cv2.inRange(image, self.__cob_lower_hsv,
+                               self.__cob_upper_hsv)
 
         # Clean up the masks.
-        clean_kernels = cls.__clean_mask(kernel_mask)
-        clean_cob = cls.__clean_mask(cob_mask)
+        clean_kernels = self.__clean_mask(kernel_mask)
+        clean_cob = self.__clean_mask(cob_mask)
 
         # Find the union of the two.
         ear_mask = np.clip(0, 255, clean_kernels + clean_cob)
         # Perform morphological closing to remove any small gaps.
         clean_ear = cv2.morphologyEx(ear_mask, cv2.MORPH_CLOSE,
-                                     cls._MORPH_KERNEL, iterations=2)
+                                     self._MORPH_KERNEL, iterations=2)
 
         return EarMask(kernel_mask=clean_kernels.astype(np.bool),
                        cob_mask=clean_cob.astype(np.bool),
