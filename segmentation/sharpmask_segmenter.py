@@ -33,6 +33,9 @@ class SharpmaskSegmenter(CornSegmenter):
     # Upper HSV bound for thresholding the cob.
     _COB_UPPER_HSV = (16, 255, 255)
 
+    # Threshold to use for Sharpmask.
+    _THRESHOLD = -2.0
+
     def __init__(self, *, checkpoint_path: Path):
         """
         :param checkpoint_path: The path to the checkpoint folder containing
@@ -74,8 +77,10 @@ class SharpmaskSegmenter(CornSegmenter):
         right_half = image[:, middle:]
 
         # Predict on both halves.
-        left_mask = self.__model.predict_sharpmask(left_half)
-        right_mask = self.__model.predict_sharpmask(right_half)
+        left_mask = self.__model.predict_sharpmask(left_half,
+                                                   threshold=self._THRESHOLD)
+        right_mask = self.__model.predict_sharpmask(right_half,
+                                                    threshold=self._THRESHOLD)
 
         # Extend both masks so they are the same size as the input.
         left_mask = np.pad(left_mask, ((0, 0), (0, width - middle)))

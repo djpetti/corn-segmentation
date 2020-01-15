@@ -268,23 +268,31 @@ class SharpMask(resnet_model.Model):
     def eval_deepmask(self, eval_source, eval_target):
         self._eval_prediction(eval_source, eval_target, self.dm_seg_prediction)
 
-    def predict_sharpmask(self, image: np.ndarray) -> np.ndarray:
+    def predict_sharpmask(self, image: np.ndarray,
+                          threshold: float = -1.0) -> np.ndarray:
         """
         Performs a single prediction on an input image using Sharpmask.
         :param image: The image to predict.
+        :param threshold: The threshold to use for deciding which pixels are
+        part of the mask.
         :return: The predicted mask for the image.
         """
         return self.__predict_one(image,
-                                  prediction_node=self.refinement_prediction)
+                                  prediction_node=self.refinement_prediction,
+                                  threshold=threshold)
 
-    def predict_deepmask(self, image: np.ndarray) -> np.ndarray:
+    def predict_deepmask(self, image: np.ndarray,
+                         threshold: float = -1.0) -> np.ndarray:
         """
         Performs a single prediction on an input image using Deepmask.
         :param image: The image to predict.
+        :param threshold: The threshold to use for deciding which pixels are
+        part of the mask.
         :return: The predicted mask for the image.
         """
         return self.__predict_one(image,
-                                  prediction_node=self.dm_seg_prediction)
+                                  prediction_node=self.dm_seg_prediction,
+                                  threshold=threshold)
 
     def _create_seg_metrics(self, seg_predictions):
         mask_indices = tf.where(self.score_target > 0)
